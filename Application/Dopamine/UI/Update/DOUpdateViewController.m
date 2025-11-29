@@ -92,8 +92,6 @@
     self.gradientMask.colors = @[(id)[UIColor clearColor].CGColor, (id)[UIColor whiteColor].CGColor, (id)[UIColor whiteColor].CGColor, (id)[UIColor clearColor].CGColor];
     self.gradientMask.locations = @[@0.0, @0.01, @0.5, @0.87];
     self.changelogSuperview.layer.mask = self.gradientMask;
-
-    BOOL envUpdate = [[DOUIManager sharedInstance] environmentUpdateAvailable];
     
     self.button = [DOActionMenuButton buttonWithAction:[UIAction actionWithTitle:DOLocalizedString(envUpdate ? @"Button_Update_Environment" : @"Button_Update") image:[UIImage systemImageNamed:@"arrow.down" withConfiguration:[DOGlobalAppearance smallIconImageConfiguration]] identifier:@"update" handler:^(__kindof UIAction * _Nonnull action) {
         if (envUpdate)
@@ -129,9 +127,8 @@
         }];
         [(UINavigationController*)(self.parentViewController) pushViewController:downloadVC animated:YES];
     }] chevron:NO];
-    
+    self.button.hidden = YES;
     self.button.translatesAutoresizingMaskIntoConstraints = NO;
-    self.button.hidden = !envUpdate;
     [self.view addSubview:self.button];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -187,17 +184,6 @@
         [changelogText appendAttributedString:markdownStringMut];
         
         [changelogText appendAttributedString:[[NSAttributedString alloc] initWithString:@"\n\n\n"]];
-        if (idx == 0)
-        {
-            NSArray *assets = release[@"assets"];
-            if (assets && assets.count > 0)
-            {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    self.lastestDownloadUrl = release[@"assets"][0][@"browser_download_url"];
-                    self.button.hidden = NO;
-                });
-            }
-        }
     }];
     [changelogText appendAttributedString:[[NSAttributedString alloc] initWithString:@"\n\n\n\n\n\n\n\n\n\n"]];
     dispatch_async(dispatch_get_main_queue(), ^{
