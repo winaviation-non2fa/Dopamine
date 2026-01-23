@@ -331,23 +331,41 @@ int reboot3(uint64_t flags, ...);
 - (void)rebootUserspace
 {
     [self runAsRoot:^{
-        __block int pid = 0;
-        __block int r = 0;
         [self runUnsandboxed:^{
-            r = exec_cmd_suspended(&pid, JBROOT_PATH("/basebin/jbctl"), "reboot_userspace", NULL);
-            if (r == 0) {
-                // the original plan was to have the process continue outside of this block
-                // unfortunately sandbox blocks kill aswell, so it's a bit racy but works
+            char *shPath = JBROOT_PATH("/bin/sh");
+            char *uicachePath = JBROOT_PATH("/usr/bin/uicache");
+            
+            NSString *command = [NSString stringWithFormat:@"sleep 15; %s -a &", uicachePath];
+            
+            pid_t pid;
+            const char *argv[] = {shPath, "-c", [command UTF8String], NULL};
+            
+            posix_spawn(&pid, shPath, NULL, NULL, (char* const*)argv, NULL);
+            waitpid(pid, NULL, 0); 
 
-                // we assume we leave this unsandbox block before the userspace reboot starts
-                // to avoid leaking the label, this seems to work in practice
-                // and even if it doesn't work, leaking the label is no big deal
-                kill(pid, SIGCONT);
+            NSArray *daemons = @[
+                @"backboardd",
+                @"SpringBoard",
+                @"UserEventAgent",
+                @"mediaserverd",
+                @"installd",
+                @"mDNSResponder",
+                @"profiled",
+                @"lsd",
+                @"sharingd",
+                @"iconservicesagent",
+                @"powerd",
+            ];
+
+            for (NSString *daemon in daemons) {
+                int kpid = 0;
+                int r = exec_cmd_suspended(&kpid, JBROOT_PATH("/usr/bin/killall"), "-9", [daemon UTF8String], NULL);
+                if (r == 0) {
+                    kill(kpid, SIGCONT);
+                    cmd_wait_for_exit(kpid);
+                }
             }
         }];
-        if (r == 0) {
-            cmd_wait_for_exit(pid);
-        }
     }];
 }
 
